@@ -92,7 +92,8 @@ const StudentWelfare = lazy(() => import('./pages/Committees/StudentWelfare.jsx'
 const ExtraCurricular = lazy(() => import('./pages/Committees/ExtraCurricular.jsx'));
 const CareerGuidance = lazy(() => import('./pages/Committees/CareerGuidance.jsx'));
 const GamesSports = lazy(() => import('./pages/Committees/GamesSports.jsx'));
-const AllCommittees = lazy(() => import('./pages/Committees/AllCommittees.jsx'));
+const FinanceCommitteePage = lazy(() => import('./pages/Committees/Finance.jsx'));
+const AlumniCell = lazy(() => import('./pages/Committees/AlumniCell.jsx'));
 
 const CommunityService = lazy(() => import('./pages/CommunityService/index.jsx'));
 
@@ -184,7 +185,6 @@ export default [
   // Committees sub-pages
   { path: '/committees/iqac', element: createElement(IQAC) },
   { path: '/committees/anti-ragging', element: createElement(AntiRagging) },
-  { path: '/committees/all-committees', element: createElement(AllCommittees) },
   { path: '/committees/grievance-redressal', element: createElement(GrievanceRedressal) },
   { path: '/committees/nptel', element: createElement(NPTEL) },
   { path: '/committees/sc-st-cell', element: createElement(SCSTCell) },
@@ -199,6 +199,8 @@ export default [
   { path: '/committees/extra-curricular', element: createElement(ExtraCurricular) },
   { path: '/committees/career-guidance', element: createElement(CareerGuidance) },
   { path: '/committees/games-sports', element: createElement(GamesSports) },
+  { path: '/committees/finance', element: createElement(FinanceCommitteePage) },
+  { path: '/committees/alumni-cell', element: createElement(AlumniCell) },
   
   { path: '/community-service', element: createElement(CommunityService) },
   
