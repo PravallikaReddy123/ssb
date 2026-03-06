@@ -333,6 +333,12 @@ export const NAV = [
     label: 'Community Service', 
     href: '/community-service',
     description: 'Social responsibility and community outreach'
+  },
+
+  { 
+    label: 'NAAC', 
+    href: '/naac',
+    description: 'NAAC criteria and document repository'
   }
 ];
 

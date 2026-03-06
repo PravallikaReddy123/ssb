@@ -5,6 +5,7 @@ import { NAV } from '../../data/nav.js';
 
 const iconMap = {
   'Home': Home,
+  'NAAC': FileText,
   'About Us': Users,
   'Admissions': GraduationCap,
   'Academics': BookOpen,

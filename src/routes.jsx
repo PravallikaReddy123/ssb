@@ -63,6 +63,8 @@ const ExamsResultsCommittee = lazy(() => import('./pages/Examinations/Committee.
 const AnnualExaminationReport = lazy(() => import('./pages/Examinations/AnnualReport.jsx'));
 const PreviousQuestionPapers = lazy(() => import('./pages/Examinations/QuestionPapers.jsx'));
 const ExaminationDownloads = lazy(() => import('./pages/Examinations/Downloads.jsx'));
+const UploadPdf = lazy(() => import('./pages/UploadPdf.jsx'));
+const NAAC = lazy(() => import('./pages/NAAC.jsx'));
 const Placements = lazy(() => import('./pages/Placements.jsx'));
 
 // Placements sub-pages
@@ -170,6 +172,8 @@ export default [
   { path: '/examinations/annual-report', element: createElement(AnnualExaminationReport) },
   { path: '/examinations/question-papers', element: createElement(PreviousQuestionPapers) },
   { path: '/examinations/downloads', element: createElement(ExaminationDownloads) },
+  { path: '/upload-pdf', element: createElement(UploadPdf) },
+  { path: '/naac', element: createElement(NAAC) },
   { path: '/placements', element: createElement(Placements) },
   
   // Placements sub-pages
