@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileText, Loader2, CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle, AlertCircle, BookOpen, Trash2 } from 'lucide-react';
 import SectionHeader from '../components/ui/SectionHeader';
 import { supabase, PDF_BUCKET, DOCUMENTS_TABLE } from '../lib/supabase';
 import { NAAC_CRITERIA } from '../data/naacCriteria';
 
 /** Fetch existing section / subsection / sub-subsection names for dropdowns */
-function useExistingSectionsAndSubsections() {
+function useExistingSectionsAndSubsections(refreshToken) {
   const [sectionsByCriterion, setSectionsByCriterion] = useState({});
   const [subsectionsByCriterionSection, setSubsectionsByCriterionSection] = useState({});
   const [subSubsectionsByKey, setSubSubsectionsByKey] = useState({});
@@ -47,12 +47,13 @@ function useExistingSectionsAndSubsections() {
     }
     fetchDocs();
     return () => { cancelled = true; };
-  }, []);
+  }, [refreshToken]);
 
   return { sectionsByCriterion, subsectionsByCriterionSection, subSubsectionsByKey };
 }
 
 export default function UploadPdf() {
+  const [refreshToken, setRefreshToken] = useState(0);
   const [criterionId, setCriterionId] = useState('');
   const [sectionTitle, setSectionTitle] = useState('');
   const [subsectionName, setSubsectionName] = useState('');
@@ -67,12 +68,52 @@ export default function UploadPdf() {
   const [status, setStatus] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const { sectionsByCriterion, subsectionsByCriterionSection, subSubsectionsByKey } = useExistingSectionsAndSubsections();
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [docsError, setDocsError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
+
+  const { sectionsByCriterion, subsectionsByCriterionSection, subSubsectionsByKey } = useExistingSectionsAndSubsections(refreshToken);
   const existingSections = (criterionId && sectionsByCriterion[criterionId]) || [];
   const sectionKey = criterionId && sectionTitle.trim() ? `${criterionId}|${sectionTitle.trim()}` : '';
   const existingSubsections = (sectionKey && subsectionsByCriterionSection[sectionKey]) || [];
   const subsectionKey = sectionKey && subsectionName.trim() ? `${sectionKey}|${subsectionName.trim()}` : '';
   const existingSubSubsections = (subsectionKey && subSubsectionsByKey[subsectionKey]) || [];
+
+  useEffect(() => {
+    if (!criterionId) {
+      setDocuments([]);
+      setDocsError('');
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchDocs() {
+      setLoadingDocs(true);
+      setDocsError('');
+      const query = supabase
+        .from(DOCUMENTS_TABLE)
+        .select('id, title, section_id, subsection_id, sub_subsection_id, file_path, criterion_id')
+        .eq('criterion_id', criterionId)
+        .order('section_id', { ascending: true })
+        .order('subsection_id', { ascending: true })
+        .order('sub_subsection_id', { ascending: true })
+        .order('title', { ascending: true });
+
+      const { data, error } = await query;
+      if (cancelled) return;
+      if (error) {
+        setDocsError(error.message || 'Could not load documents.');
+        setDocuments([]);
+      } else {
+        setDocuments(data || []);
+      }
+      setLoadingDocs(false);
+    }
+
+    fetchDocs();
+    return () => { cancelled = true; };
+  }, [criterionId, refreshToken]);
 
   useEffect(() => {
     if (criterionId && existingSections.length > 0 && !sectionTitle) {
@@ -196,6 +237,7 @@ export default function UploadPdf() {
       setSectionTitle('');
       setSubsectionName('');
       setSubSubsectionName('');
+      setRefreshToken((token) => token + 1);
       if (document.getElementById('pdf-file-input')) {
         document.getElementById('pdf-file-input').value = '';
       }
@@ -205,6 +247,46 @@ export default function UploadPdf() {
       setErrorMessage(err.message || 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteDocument = async (doc) => {
+    if (!doc || !doc.id) return;
+    const ok = window.confirm('Delete this document from NAAC? It will be removed from the NAAC page.');
+    if (!ok) return;
+
+    const deletingKey = String(doc.id);
+    setDeletingId(deletingKey);
+    setStatus(null);
+    setErrorMessage('');
+
+    try {
+      if (doc.file_path) {
+        const { error: storageError } = await supabase.storage
+          .from(PDF_BUCKET)
+          .remove([doc.file_path]);
+        if (storageError && storageError.message && !storageError.message.toLowerCase().includes('not found')) {
+          throw storageError;
+        }
+      }
+
+      const { error } = await supabase
+        .from(DOCUMENTS_TABLE)
+        .delete()
+        .eq('id', doc.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+      setRefreshToken((token) => token + 1);
+    } catch (err) {
+      console.error(err);
+      setStatus('error');
+      setErrorMessage(err.message || 'Failed to delete document.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -453,6 +535,53 @@ export default function UploadPdf() {
                   {isSubmitting ? 'Uploading...' : 'Upload NAAC PDF'}
                 </button>
               </form>
+
+              {criterionId && (
+                <div className="mt-8 border-t border-[var(--border-light)] pt-6">
+                  <p className="text-sm font-medium text-[var(--text-soft)] mb-3">
+                    Existing documents for this criterion
+                  </p>
+                  {loadingDocs && (
+                    <p className="text-xs text-[var(--text-muted)]">Loading documents…</p>
+                  )}
+                  {!loadingDocs && docsError && (
+                    <p className="text-xs text-red-500">{docsError}</p>
+                  )}
+                  {!loadingDocs && !docsError && documents.length === 0 && (
+                    <p className="text-xs text-[var(--text-muted)]">No documents yet under this criterion.</p>
+                  )}
+                  {!loadingDocs && !docsError && documents.length > 0 && (
+                    <div className="mt-2 space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {documents.map((doc) => {
+                        const key = String(doc.id);
+                        return (
+                        <div
+                          key={key}
+                          className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-[var(--surface-1)] border border-[var(--border-light)]"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-[var(--text)] truncate">{doc.title}</p>
+                            <p className="text-[10px] text-[var(--text-muted)] truncate">
+                              {doc.section_id || 'No section'}
+                              {doc.subsection_id ? ` › ${doc.subsection_id}` : ''}
+                              {doc.sub_subsection_id ? ` › ${doc.sub_subsection_id}` : ''}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDocument(doc)}
+                            disabled={deletingId === key}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-60"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {deletingId === key ? 'Deleting…' : 'Delete'}
+                          </button>
+                        </div>
+                      )})}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
